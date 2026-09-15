@@ -55,7 +55,12 @@ header{display:flex;align-items:center;gap:16px;padding:8px 18px;min-width:0;bor
 .count b{color:var(--text);font-weight:500}
 .iconbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line2);border-radius:var(--radius);color:var(--text2);font-size:13px}
 .iconbtn:hover{border-color:var(--ember);color:var(--text)}
-main{display:grid;grid-template-columns:var(--rail) minmax(0,1fr) var(--detail);min-height:0;min-width:0}
+main{display:grid;grid-template-columns:var(--rail) minmax(0,1fr) var(--detail);min-height:0;min-width:0;position:relative}
+.dragbar{position:absolute;top:0;bottom:0;right:calc(var(--detail) - 4px);width:8px;cursor:col-resize;z-index:5;touch-action:none}
+.dragbar::after{content:"";position:absolute;left:3px;top:0;bottom:0;width:2px;background:transparent;transition:background .15s}
+.dragbar:hover::after,.dragbar.on::after{background:var(--ember)}
+body.resizing{cursor:col-resize;user-select:none}
+@media (max-width:1180px){.dragbar{display:none}}
 
 /* ---- rail ---- */
 .rail{border-right:1px solid var(--line);overflow-y:auto;padding:14px 14px 40px;background:var(--bg2)}
@@ -321,6 +326,7 @@ table.kso td.n.hi{color:var(--good)}
   <aside class="rail" id="rail"></aside>
   <section class="results" id="results"><div class="grid" id="grid"></div><div class="empty" id="empty" hidden></div></section>
   <aside class="detail" id="detail"></aside>
+  <div class="dragbar" id="dragbar" title="Drag to resize the panel. Double-click to reset."></div>
 </main>
 </div>
 <div class="modal" id="calcModal" hidden role="dialog" aria-modal="true" aria-labelledby="calcTitle">
@@ -965,6 +971,16 @@ $('#mbSearch').addEventListener('click',()=>{$('#rail').classList.remove('open')
 $('#mbTop').addEventListener('click',()=>{const d=$('#detail'); if(d.classList.contains('open')) d.scrollTo({top:0,behavior:'smooth'}); else $('#results').scrollTo({top:0,behavior:'smooth'});});
 $('#mbClose').addEventListener('click',()=>{$('#detail').classList.remove('open'); document.body.classList.remove('locked'); $('#mbClose').hidden=true;});
 $('#calcClose').addEventListener('click',closeCalc);
+// resizable detail panel (desktop)
+{ const bar=$('#dragbar'), root=document.documentElement; let drag=false;
+  try{ const w=+localStorage.getItem('forge.detailW'); if(w>=340) root.style.setProperty('--detail',w+'px'); }catch(e){}
+  const clampW=w=>Math.max(340,Math.min(Math.floor(innerWidth*0.6),w));
+  bar.addEventListener('pointerdown',e=>{drag=true; bar.classList.add('on'); document.body.classList.add('resizing'); bar.setPointerCapture(e.pointerId);});
+  bar.addEventListener('pointermove',e=>{ if(!drag) return; root.style.setProperty('--detail',clampW(innerWidth-e.clientX)+'px'); });
+  const stop=()=>{ if(!drag) return; drag=false; bar.classList.remove('on'); document.body.classList.remove('resizing'); try{localStorage.setItem('forge.detailW',String(parseInt(getComputedStyle(root).getPropertyValue('--detail'))));}catch(e){} };
+  bar.addEventListener('pointerup',stop); bar.addEventListener('pointercancel',stop);
+  bar.addEventListener('dblclick',()=>{ root.style.removeProperty('--detail'); try{localStorage.removeItem('forge.detailW');}catch(e){} });
+}
 $('#calcModal').addEventListener('click',e=>{ if(e.target===$('#calcModal')) closeCalc(); });
 document.addEventListener('keydown',e=>{
   if(e.key==='/'&&document.activeElement!==q){e.preventDefault();q.focus();q.select();}
