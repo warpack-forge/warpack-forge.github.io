@@ -206,6 +206,32 @@ details summary{cursor:pointer;color:var(--steel);font-size:13px}
 .lit{font-size:13px;color:var(--text2);display:grid;gap:3px}
 .lit b{color:var(--good);font-weight:500}
 .mech .body li{margin-bottom:6px}
+.modal{position:fixed;inset:0;z-index:40;background:#0009;display:grid;place-items:center;padding:20px}
+.modal[hidden]{display:none}
+.mbox{width:min(880px,100%);max-height:calc(100vh - 40px);overflow-y:auto;background:var(--bg2);border:1px solid var(--line2);border-radius:10px;box-shadow:0 20px 60px #000c}
+.mhead{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#161a20,var(--bg2))}
+.mhead h3{margin:0;font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:.03em}
+.mhead h3 em{font-style:normal;color:var(--ember2)}
+.mhead .iconbtn{margin-left:auto}
+.mbody{padding:16px 18px 22px}
+.mbody .calc{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 20px;align-items:start}
+.mbody .calc>.row:first-child{grid-column:1/-1}
+.mbody .calc>.cmp{grid-column:2;grid-row:2/5}
+.mbody .calc>.row:nth-child(2){grid-column:1;flex-direction:column;align-items:stretch}
+.mbody .calc>.row:nth-child(2) .bag{grid-template-columns:repeat(3,64px)}
+.mbody .calc>.row:nth-child(2) .bag button{width:64px;height:64px}
+.mbody .calc>.lit,.mbody .calc>.note,.mbody .calc>.row.syn{grid-column:1}
+.mbody .calc>p.note.warn{grid-column:1/-1}
+.hero .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hero .actions .iconbtn.primary{border-color:var(--ember);color:var(--ember2);background:var(--ember-dim)}
+@media (max-width:820px){
+  .modal{padding:0}
+  .mbox{width:100%;max-height:100vh;height:100vh;border-radius:0;border:0;padding-bottom:20px}
+  .mbody .calc{grid-template-columns:1fr}
+  .mbody .calc>.cmp{grid-column:1;grid-row:auto}
+  .mbody .calc>.row:nth-child(2) .bag{grid-template-columns:repeat(3,56px)}
+  .mbody .calc>.row:nth-child(2) .bag button{width:56px;height:56px}
+}
 .plan{display:grid;gap:14px}
 .plan h4{margin:0 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .tl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px;align-items:baseline}
@@ -296,6 +322,12 @@ table.kso td.n.hi{color:var(--good)}
   <section class="results" id="results"><div class="grid" id="grid"></div><div class="empty" id="empty" hidden></div></section>
   <aside class="detail" id="detail"></aside>
 </main>
+</div>
+<div class="modal" id="calcModal" hidden role="dialog" aria-modal="true" aria-labelledby="calcTitle">
+  <div class="mbox">
+    <div class="mhead"><h3 id="calcTitle">Loadout calculator</h3><button class="iconbtn" id="calcClose">Close</button></div>
+    <div class="mbody"><div id="calc"></div></div>
+  </div>
 </div>
 <nav class="mbar" aria-label="Quick actions">
   <button type="button" id="mbFilters">Filters</button>
@@ -555,7 +587,7 @@ function unitOddsTable(u){
   </tbody></table>
   <p class="note">Weights come from the game's shop code and depend only on cost and round: 1-cost max(2, 10−round), 2-cost max(3, 11−round), 3-cost min(9, 1+round) from round 2, 4-cost min(8, round−1) from round 3, 5-cost min(6, round−3) from round 5, 6-cost min(5, round−4) from round 6. Each Market level adds a slot and counts as +1 round for these weights; Shop Luck oaths add +1 or +2 rounds. Owning three or more copies of a unit cuts its weight by 15% per copy beyond the second. The commander's lean trait does not affect the shop.</p>`;
 }
-function hero(rc,imgHtml,title,line,badges){const cmp=(state.tab==='units'||state.tab==='items')?`<button class="iconbtn" id="cmpBtn" style="margin-top:8px">${state.cmp&&state.cmp.tab===state.tab?'Compare with '+esc(lookup(state.tab,state.cmp.a)?.name||''):'Compare…'}</button>`:''; return `<div class="hero" style="--rc:${rc}"><div class="big">${imgHtml}</div><div><h2>${title}</h2><div class="line">${line}</div><div class="badges">${badges}</div>${cmp}</div><button class="iconbtn close" id="closeDetail">Close</button></div>`;}
+function hero(rc,imgHtml,title,line,badges){const acts=[]; if(state.tab==='units'){const c=state.calc[state.sel]; const n=c?c.grid.filter(Boolean).length:0; acts.push(`<button class="iconbtn primary" id="calcBtn">Loadout calculator${n?` · ${n} item${n>1?'s':''}`:''}</button>`);} if(state.tab==='units'||state.tab==='items') acts.push(`<button class="iconbtn" id="cmpBtn">${state.cmp&&state.cmp.tab===state.tab?'Compare with '+esc(lookup(state.tab,state.cmp.a)?.name||''):'Compare…'}</button>`); return `<div class="hero" style="--rc:${rc}"><div class="big">${imgHtml}</div><div><h2>${title}</h2><div class="line">${line}</div><div class="badges">${badges}</div>${acts.length?`<div class="actions">${acts.join('')}</div>`:''}</div><button class="iconbtn close" id="closeDetail">Close</button></div>`;}
 
 // ---------- item detail ----------
 function itemDetail(i){
@@ -588,7 +620,7 @@ function itemDetail(i){
 function unitDetail(u){
   const rc=FC(u.faction), s=u.stats;
   const cell=(l,v)=>`<div><small>${l}</small><b>${v}</b></div>`;
-  const stats=`<div class="statgrid">${cell('HP',s.hp)}${cell('Damage',s.dmg)}${cell('Attack every',s.interval+'s')}${cell('DPS',s.dps)}${cell('Armor',s.armor)}${cell('Dodge',pct(s.dodge))}${cell('Crit',pct(s.crit))}${cell('Range',s.range)}${cell('Move speed',s.speed)}${s.maxMana?cell('Mana',`${s.startMana}/${s.maxMana}`):''}${s.maxMana?cell('Mana / attack',s.manaPerAttack):''}${s.maxMana?cell('Mana / hit taken',s.manaPerHit):''}</div><p class="note">Level-1 base values. Feeding, gear, synergies, commander leans and keystones stack on top.${s.openMana?' Opens the battle with mana.':''}</p>`;
+  const stats=`<div class="statgrid">${cell('HP',s.hp)}${cell('Damage',s.dmg)}${cell('Attack every',s.interval+'s')}${cell('DPS',s.dps)}${cell('Armor',s.armor)}${cell('Dodge',pct(s.dodge))}${cell('Crit',pct(s.crit))}${cell('Range',s.range)}${cell('Move speed',s.speed)}${s.maxMana?cell('Mana',`${s.startMana}/${s.maxMana}`):''}${s.maxMana?cell('Mana / attack',s.manaPerAttack):''}${s.maxMana?cell('Mana / hit taken',s.manaPerHit):''}</div><p class="note">Level-1 base values. Feeding, gear, synergies, commander leans and keystones stack on top.${s.openMana?' Opens the battle with mana.':''} Use the <b>Loadout calculator</b> button above to see this unit at any level with items and synergies.</p>`;
   let abil='';
   if(u.ability){const a=u.ability; abil=`<ul class="eff"><li>${a.onDeath?'<b>When it dies:</b> ':''}<b>${a.kind}</b>${a.power?` · power ${a.power}`:''}${a.count?` · ${a.kind==='Chain'?a.count+' jumps':a.kind==='Blast'?'hits up to '+a.count:a.kind==='Rally'?'up to '+a.count+' allies':a.kind==='Summon'?a.count+' bodies':'×'+a.count}`:''}<small>${esc(a.desc)}${a.kind==='Rally'?' Measured once off their damage, so repeat rallies add the same slice instead of compounding.':''}</small></li>${a.summon?`<li>Raises <b>${esc(a.summon.name)}</b> at ${a.summon.hp} HP / ${a.summon.dmg} dmg${a.summon.immobile?', immobile':''}${a.summon.atTarget?', beside its target':''}${a.summon.pierce?`, pierce ${a.summon.pierce}`:''}<small>Grows with levels and spell power.</small></li>`:''}</ul>`;}
   const skill=u.skill?`<div class="skill"><b>${esc(u.skill.name)}</b><br>${esc(u.skill.text)}</div>`:'';
@@ -599,7 +631,7 @@ function unitDetail(u){
   const keyHtml=keys.length?`<div class="usedin">${keys.map(k=>`<div class="row"><button class="ilink" data-go="keystones:${k.id}" style="--c:${k.faction?FC(k.faction):'var(--f-shared)'}">${k.hasImg?`<img src="img/keystones/${k.id}.webp" alt="">`:'<span class="ph">✦</span>'}${esc(k.name)}</button><span style="font-size:13px">${esc(k.desc)}</span></div>`).join('')}</div>`:'';
   return hero(rc,img('units',u),esc(u.name),`<span style="color:${rc}">${esc(u.factionName)}</span><span>·</span><span class="num">${u.cost} gold</span><span>·</span><span>${esc(u.roleLine)}</span>`,
       `${u.traits.map(t=>`<span class="tg" style="--c:${TRAITC[t]||'var(--text2)'}">${esc(t)}</span>`).join('')}${u.ranged?'<span class="badge">ranged</span>':'<span class="badge">melee</span>'}${s.maxMana?'<span class="badge mana">caster</span>':''}${u.demo?'':'<span class="badge lock">full release only</span>'}`)
-    +sec('Stats',stats)+sec('Loadout calculator','<div id="calc"></div>','level, backpack and synergies')+notesSec(u)+sec('Shop odds',unitOddsTable(u),'chance it is on the unit shelf')+sec('Ability',abil)+sec('Special skill',skill)+sec('Traits and synergies',syn+(others.length?`<p class="note">Tag-only traits (no synergy row): ${others.map(esc).join(', ')}</p>`:''))+sec('Ascension',asc)+sec('Keystones that touch it',keyHtml,'by unit or by trait')
+    +sec('Stats',stats)+notesSec(u)+sec('Shop odds',unitOddsTable(u),'chance it is on the unit shelf')+sec('Ability',abil)+sec('Special skill',skill)+sec('Traits and synergies',syn+(others.length?`<p class="note">Tag-only traits (no synergy row): ${others.map(esc).join(', ')}</p>`:''))+sec('Ascension',asc)+sec('Keystones that touch it',keyHtml,'by unit or by trait')
     +`<div class="footer">id <span class="num">${u.id}</span> · Warpack v${esc(D.version)} · updated ${esc(D.updated)}</div>`;
 }
 
@@ -790,6 +822,9 @@ function bagResolve(grid){ // grid: 9 entries of item id or null, index = y*3+x
   for(const q of placed){const r=q.i.raw; grants.fs=Math.max(grants.fs,r.fs||0); grants.critDmg+=r.critDmg||0; grants.pen+=r.pen||0; grants.ls+=r.ls||0; grants.exe+=r.exe||0; grants.shield+=r.shield||0; grants.shieldPct+=r.shieldPct||0;}
   return {mods,lit,grants,placed};
 }
+let calcUnit=null;
+function openCalc(u){ calcUnit=u; $('#calcTitle').innerHTML=`Loadout calculator · <em>${esc(u.name)}</em>`; $('#calcModal').hidden=false; document.body.classList.add('locked'); renderCalc(u); $('#calcClose').focus(); }
+function closeCalc(){ const m=$('#calcModal'); if(m.hidden) return; m.hidden=true; if(!$('#detail').classList.contains('open')) document.body.classList.remove('locked'); const b=$('#calcBtn'); if(b&&calcUnit){const c=state.calc[calcUnit.id]; const n=c?c.grid.filter(Boolean).length:0; b.textContent=`Loadout calculator${n?` · ${n} item${n>1?'s':''}`:''}`;} }
 function calcState(u){ return state.calc[u.id]||(state.calc[u.id]={level:5,grid:Array(9).fill(null),syn:{},armor:10,pdmg:0,php:0,cell:null,q:''}); }
 function computeCalc(u,c){
   const b=u.stats; const mult=1+0.25*(c.level-1);
@@ -829,10 +864,10 @@ function renderCalc(u){
   box.innerHTML=`<div class="calc">
     <div class="row"><label>Level <select id="calcLvl">${[1,2,3,4,5].map(l=>`<option value="${l}" ${c.level===l?'selected':''}>${l}</option>`).join('')}</select></label><label>Enemy armor <input type="number" id="calcArmor" min="0" max="100" value="${c.armor}"></label><label title="Blooded, Butcher's Ledger, gorge feeds, Coronation: flat damage added before every multiplier">Perm. +dmg <input type="number" id="calcPdmg" min="0" max="500" value="${c.pdmg}"></label><label title="Gorge feeds, Ledger HP: added after item percentages">Perm. +HP <input type="number" id="calcPhp" min="0" max="5000" value="${c.php}"></label><button class="iconbtn" id="calcReset">Clear</button></div>
     <div class="row" style="align-items:flex-start"><div class="bag">${cells.join('')}</div><div style="flex:1;min-width:200px">${picker||`<p class="note" style="margin:0">Click a slot to place an item. ${unlocked} of 9 slots open at level ${c.level}; the centre and its four neighbours unlock first. A green dot marks a lit combo.</p>`}</div></div>
-    ${syn?`<div class="row"><span class="k" style="color:var(--muted)">Synergies</span>${syn}</div>`:''}
+    ${syn?`<div class="row syn"><span class="k" style="color:var(--muted)">Synergies</span>${syn}</div>`:''}
     <div class="cmp"><div class="h"></div><div class="h">Level ${c.level} bare</div><div class="h">With items</div><div class="h">In battle</div>${rows.join('')}</div>
     ${r.lit.length?`<div class="lit">${r.lit.map(l=>`<div><b>lit</b> ${esc(l.text)}</div>`).join('')}</div>`:''}
-    ${r.piled?`<p class="note" style="margin:0;color:var(--warn)">Past the stacking knee: item damage beyond 2.25× base (or attack rate beyond 1.6×) is soft-capped and now grows as the square root.</p>`:''}
+    ${r.piled?`<p class="note warn" style="margin:0;color:var(--warn)">Past the stacking knee: item damage beyond 2.25× base (or attack rate beyond 1.6×) is soft-capped and now grows as the square root.</p>`:''}
     <p class="note" style="margin:0">"With items" is what the in-game unit panel shows. "In battle" adds the synergy tiers you picked. Percent damage mods compound one after another; HP percents add up and apply once; permanent HP is added after item percentages. Crit and first strike never stack: the larger applies. Lifesteal ${r.grants.ls?Math.round(r.grants.ls*100)+'%':'0%'}, execute ${r.grants.exe?'+'+r.grants.exe+'%':'none'}, armor pen ${r.grants.pen}, first strike ×${fsMult.toFixed(1)}.</p>
   </div>`;
   const rerender=()=>renderCalc(u);
@@ -898,7 +933,7 @@ function select(id,scroll){
   if(!i){d.innerHTML='<div class="placeholder"><h3>Not found</h3></div>';return;}
   if(state.cmp&&state.cmp.tab===state.tab&&state.cmp.a!==id&&renderCompare(state.tab,state.cmp.a,id)){ if(scroll){const c=document.querySelector(`.card[data-id="${CSS.escape(id)}"]`); if(c) c.scrollIntoView({block:'nearest'});} return; }
   d.innerHTML=TABS[state.tab].detail(i); d.scrollTop=0; d.classList.add('open'); document.body.classList.add('locked'); $('#mbClose').hidden=false;
-  if(state.tab==='units') renderCalc(i);
+  if(state.tab==='units'){ const cb2=d.querySelector('#calcBtn'); if(cb2) cb2.addEventListener('click',()=>openCalc(i)); }
   if(state.tab==='commanders') bindPlan(i);
   const cb=d.querySelector('#cmpBtn'); if(cb) cb.addEventListener('click',()=>{ if(state.cmp&&state.cmp.tab===state.tab&&state.cmp.a!==id){ renderCompare(state.tab,state.cmp.a,id); return; } state.cmp={tab:state.tab,a:id}; cb.textContent='Now pick another '+PICK[state.tab].replace(/^an? /,''); cb.style.color='var(--ember2)'; });
   history.replaceState(null,'',`#${state.tab}/${encodeURIComponent(id)}`);
@@ -911,7 +946,7 @@ function select(id,scroll){
 const PLACEHOLDER={items:'Every item in the build, with the numbers the Forge screen leaves out: stat lines, backpack combo rules, what fuses into what, and the odds of seeing it on the shelf round by round.',units:'Every unit with level-1 stats, abilities, special skills, trait synergies and ascension options. Elderwood and Ironclaw units are in the data but locked in the demo.',keystones:'The treasure relics offered at rounds 3, 6, 9 and 12: what each does, whose vault it sits in, and which units it touches.',commanders:'All 24 commanders with their passive lean, starting unit, skill paths, oaths and deeds. Elderwood and Ironclaw commanders are in the data but locked in the demo.',skills:'Every commander skill: the after-battle picks. Filter by commander or path, find capstones, or search by effect.',ascensions:'All 192 level-5 evolutions: the generic pool for each role, and the signature ones tied to a single unit.',synergies:'The 20 trait synergies: tier thresholds, what each tier gives, every unit born with the trait, and the commanders, items, keystones and skills that key off it.',mechanics:'The combat and run rules the game never spells out, read straight from its battle code: crit, armor, dodge, first strike, chill, sudden death, feeding, shop odds and matchmaking.'};
 const PICK={items:'an item',units:'a unit',keystones:'a keystone',commanders:'a commander',skills:'a skill',ascensions:'an ascension',synergies:'a trait',mechanics:'a topic'};
 function setTab(t){
-  state.tab=t; state.sel=null;
+  closeCalc(); state.tab=t; state.sel=null;
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t)));
   $('#q').placeholder=TABS[t].placeholder;
   $('#detail').innerHTML=`<div class="placeholder"><h3>Pick ${PICK[t]}</h3>${PLACEHOLDER[t]}<br><br>Tip: press <kbd>/</kbd> to search, <kbd>Esc</kbd> to clear.</div>`;
@@ -929,13 +964,15 @@ $('#mbFilters').addEventListener('click',()=>{const r=$('#rail'); r.classList.to
 $('#mbSearch').addEventListener('click',()=>{$('#rail').classList.remove('open'); $('#mbFilters').setAttribute('aria-pressed','false'); window.scrollTo({top:0,behavior:'smooth'}); q.focus(); q.select();});
 $('#mbTop').addEventListener('click',()=>{const d=$('#detail'); if(d.classList.contains('open')) d.scrollTo({top:0,behavior:'smooth'}); else $('#results').scrollTo({top:0,behavior:'smooth'});});
 $('#mbClose').addEventListener('click',()=>{$('#detail').classList.remove('open'); document.body.classList.remove('locked'); $('#mbClose').hidden=true;});
+$('#calcClose').addEventListener('click',closeCalc);
+$('#calcModal').addEventListener('click',e=>{ if(e.target===$('#calcModal')) closeCalc(); });
 document.addEventListener('keydown',e=>{
   if(e.key==='/'&&document.activeElement!==q){e.preventDefault();q.focus();q.select();}
-  else if(e.key==='Escape'){ if(document.activeElement===q&&q.value){q.value='';state.q='';render();} else {$('#detail').classList.remove('open');document.body.classList.remove('locked');$('#rail').classList.remove('open');$('#mbClose').hidden=true;} }
+  else if(e.key==='Escape'){ if(!$('#calcModal').hidden){ closeCalc(); } else if(document.activeElement===q&&q.value){q.value='';state.q='';render();} else {$('#detail').classList.remove('open');document.body.classList.remove('locked');$('#rail').classList.remove('open');$('#mbClose').hidden=true;} }
 });
 function fromHash(){const h=decodeURIComponent(location.hash.slice(1)); const [t,id]=h.split('/'); const tab=TABS[t]?t:(itemById[h]?'items':'items'); setTab(tab); const x=id||(itemById[h]?h:null); if(x&&x.includes('~')&&(tab==='units'||tab==='items')){const [a,b]=x.split('~'); if(lookup(tab,a)&&lookup(tab,b)){state.cmp={tab,a}; state.sel=b; renderCompare(tab,a,b); return;}} if(x&&lookup(tab,x)) select(x,true);}
 fromHash();
-$('#home').addEventListener('click',e=>{e.preventDefault(); const d=$('#detail'); d.classList.remove('open'); document.body.classList.remove('locked'); for(const k in state.f) state.f[k]={}; $('#q').value=''; state.q=''; setTab(Object.keys(TABS)[0]); history.replaceState(null,'',location.pathname); window.scrollTo(0,0);});
+$('#home').addEventListener('click',e=>{e.preventDefault(); closeCalc(); const d=$('#detail'); d.classList.remove('open'); document.body.classList.remove('locked'); for(const k in state.f) state.f[k]={}; $('#q').value=''; state.q=''; setTab(Object.keys(TABS)[0]); history.replaceState(null,'',location.pathname); window.scrollTo(0,0);});
 window.addEventListener('hashchange',()=>{const h=decodeURIComponent(location.hash.slice(1)); const [t,id]=h.split('/'); if(TABS[t]&&(t!==state.tab||(id&&id!==state.sel))) fromHash();});
 })();
 </script>
